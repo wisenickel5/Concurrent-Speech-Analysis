@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+speech-analytics-350819-d7c6d8d6c7af.json
+
+config.py

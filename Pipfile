@@ -5,7 +5,9 @@ name = "pypi"
 
 [packages]
 speechrecognition = "*"
-scipy = "*"
+pyaudio = "*"
+oauth2client = "*"
+google-api-python-client = "*"
 
 [dev-packages]
 
