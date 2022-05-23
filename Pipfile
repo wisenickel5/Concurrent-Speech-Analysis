@@ -8,6 +8,8 @@ speechrecognition = "*"
 pyaudio = "*"
 oauth2client = "*"
 google-api-python-client = "*"
+numpy = "*"
+matplotlib = "*"
 
 [dev-packages]
 

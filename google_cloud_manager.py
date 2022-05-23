@@ -1,17 +1,23 @@
 # Standard Lib. Imports
+import multiprocessing
 from threading import Thread
+from multiprocessing import Process
 from queue import Queue
 import logging
-import json
 
 # Local Imports
 from config import GOOGLE_CLOUD_SPEECH_CREDENTIALS
+from extraction import json_extract
+from visualization import Visualizer
 
 # 3rd Party Imports
 import speech_recognition as sr
+import matplotlib.pyplot as audio_plot
 
 r = sr.Recognizer()
 audio_queue = Queue()
+prepare_queue = multiprocessing.Queue()
+show_queue = multiprocessing.Queue()
 
 def recognize_worker():
 	"""Runs in a background thread via daemon
@@ -25,8 +31,8 @@ def recognize_worker():
 			# For testing purposes, the default API key is being
 			# used for Google Speech Recognition.
 			result = r.recognize_google_cloud(audio, GOOGLE_CLOUD_SPEECH_CREDENTIALS, show_all=True)
-			formatted_result = json.dumps(result, indent=2)
-			print(f'Google Cloud Speech Recognition Prediction: \n{formatted_result}')
+			speech = json_extract(result, 'transcript')
+			print(f'Google Cloud Speech Recognition Prediction: \n{speech}')
 
 		except sr.UnknownValueError:
 			logging.warning('Google Cloud Speech Recognition could not recognize audio')
@@ -35,18 +41,45 @@ def recognize_worker():
 
 		audio_queue.task_done() # Mark audio processing job as complete in the queue
 
-recognize_thread = Thread(target=recognize_worker)
-recognize_thread.daemon = True
-recognize_thread.start()
+if __name__ == '__main__':
+	# Start a new thread to recognize audio, while this thread focuses on listening
+	recognize_thread = Thread(target=recognize_worker, daemon=True)
+	recognize_thread.start()
 
-with sr.Microphone() as source:
-	try:
-		while True:
-			r.adjust_for_ambient_noise(source, duration=1)
-			audio_queue.put(r.listen(source))
-	except KeyboardInterrupt: # Ctrl + C shuts program down.
-		pass
+	# The challenge here is that we need to pass the audio input recieved
+	# from the microphone to properly instantiate the Visualizer class.
+	# ...Unless we set all of the Visualizer class attributes equal to None.
+	# But isn't this a horrible practice? I have a gut feeling it is.
+	prepare_pc = Process(target=Visualizer.prepare_audio, args=())
+	prepare_pc.start()
+	show_pc = Process(target=Visualizer.show_audio, args=())
+	show_pc.start()
 
-audio_queue.join()
-audio_queue.put(None)
-recognize_thread.join()
+	with sr.Microphone() as source:
+		try:
+			while True:
+				# repeatedly listen for phrases and put the resulting audio on the audio processing job queue
+				r.adjust_for_ambient_noise(source, duration=1)
+				input = r.listen(source, timeout=30, phrase_time_limit=15)
+				audio_queue.put(input)
+
+				# Visualizing
+
+		except KeyboardInterrupt: # Ctrl + C shuts program down.
+			pass
+
+	audio_queue.join() # Block until all current audio processing jobs are done
+	audio_queue.put(None) # Tell the recognize_thread to stop
+	recognize_thread.join() # Wait for the recognize_thread to actually stop
+
+	prepare_queue.join()
+	prepare_queue.put(None)
+	prepare_pc.join()
+
+	show_queue.join()
+	show_queue.put(None)
+	show_pc.join()
+	
+
+
+
