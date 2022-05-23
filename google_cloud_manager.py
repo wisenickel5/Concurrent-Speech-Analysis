@@ -60,7 +60,7 @@ if __name__ == '__main__':
 			while True:
 				# repeatedly listen for phrases and put the resulting audio on the audio processing job queue
 				r.adjust_for_ambient_noise(source, duration=1)
-				input = r.listen(source, timeout=30, phrase_time_limit=15)
+				input = r.listen(source, timeout=15, phrase_time_limit=5)
 				audio_queue.put(input)
 
 				# Visualizing
